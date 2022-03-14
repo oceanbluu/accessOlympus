@@ -18,7 +18,6 @@ RPC PROVIDER:
 All blockchain access for these lines of code goes via Metamask. This can add up to a fair bit of API calls. Recommend to update Metamask RPC settings to a dedicated account (api key).
 Best option for security and performance: run your own node. 
 Alternative option for performance: free account at Infura or other, with 100,000 daily API calls.
-Alternative option for security: POKT network – did not yet prove stable enough during testing.
 
 API CALL FREQUENCY:
 At first launch, expect 60 API calls without PRO. This one time initialization of static data will persist in local storage until cookies and site data are deleted from the browser. The refresh frequency can be adjusted in settings, allowing control over running API calls.
