@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>body { background-color: black; text-decoration-color: orange; text-align:center; } </style>
+    <title>Access Olympus</title>
+</head>
+<body>
+    <div class="title" id="title" style="font-size:xx-large;">
+        <a style="text-decoration-line:none;color: orange" href="https://www.olympusdao.finance/">Ω</a>
+    </div>
+    <div class="intro" id="intro" style="font-family:monospace;">
+        <button style="height:25px;width:200px;background-color: orange;outline-color:orange;" class="connectButton">access</button>
+        <form id="moveAsset" action="javascript:void(0);">
+            <div class="field">
+                <small><span class="showGasPrice" style="color: orange"></span></small>
+                <br><br>
+                <input list="claimList" id="claim" autocomplete="off" placeholder="asset:" style="visibility:hidden;background-color: orange;color:black;"">
+                <datalist id="claimList"></datalist>
+                <button class="cashButton" type="submit" style="width:50px;visibility:hidden;border-radius:10%;color:white;background-color: green">cash</button>
+            </div>
+        </form>    
+        <pre><table class="table1""></table></pre>
+        <br><br>
+        <span class="showMarket" style="color: orange;"></span>
+        <br>
+        <input list="marketList" id="market" placeholder="market:" style="visibility:hidden;background-color: orange;color:black;"">
+        <datalist id="marketList"></datalist>
+        <button class="bidButton" type="submit" style="width:50px;visibility:hidden;border-radius:10%;color:white;background-color: red">bid</button>
+        <pre><table class="table2"></table></pre>
+        <small>
+            <span class="showStatus" style="color: orange"></span>
+            <br>
+            <span class="showAccount" style="color: orange;"></span>
+        </small>
+        <br><br>
+        <button style="background-color: black; color: orange;border:none;visibility:hidden" class="settingsButton">&#x2699</button>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <button style="background-color: black; color: orange;border:none;visibility:hidden" class="simButton">&#8505</button>
+    </div>
+
+    <div>
+        <script src="index.js"></script>
+    </div>
+
+</body>
+</html>
