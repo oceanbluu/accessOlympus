@@ -8,8 +8,8 @@ Do not connect any mainnet wallet. If you do decide to do it anyway after review
 
 HOW TO RUN:
 - Install python3 from Microsoft Store (should be installed on MacOS/Linux by default)
-- Download index.html
-- Open a command prompt and go to directory of the index.html file
+- Download index.html and index.js
+- Open a command prompt and go to directory of the index.html and index.js files
 - Run: python3 -m http.server 8000 to launch a local-only web server
 - Launch Firefox/Metamask
 - Open http://localhost:8000
