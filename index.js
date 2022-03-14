@@ -1302,7 +1302,7 @@ function utilsUtf8ToHex(s) // Credit: https://stackoverflow.com/questions/605049
 
 function utilsSetLowToLocalStorage(product, price) {
   let key = product + "-" + (new Date()).getHours();
-  if (window.localStorage.getItem(key) == null || price < window.localStorage.getItem(key))
+  if (window.localStorage.getItem(key) == null || Number(price) < Number(window.localStorage.getItem(key)))
     window.localStorage.setItem(key, price);
 
 }
