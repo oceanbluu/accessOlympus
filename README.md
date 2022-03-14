@@ -21,4 +21,4 @@ Alternative option for performance: free account at Infura or other, with 100,00
 Alternative option for security: POKT network – did not yet prove stable enough during testing.
 
 API CALL FREQUENCY:
-At first launch, expect XXXX API calls. This one time initialization of static data will persist in local storage until cookies and site data are deleted from the browser. The refresh frequency can be adjusted in settings, allowing control over running API calls.
+At first launch, expect 60 API calls without PRO. This one time initialization of static data will persist in local storage until cookies and site data are deleted from the browser. The refresh frequency can be adjusted in settings, allowing control over running API calls.
