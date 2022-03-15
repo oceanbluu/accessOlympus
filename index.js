@@ -82,43 +82,65 @@ class Position {
  * Data repository finessed for mirroring to UI table
  */
 class Market {
-  constructor(baseTokenSymbol, quoteTokenSymbol, type, vestingPeriod, marketValue, quoteTokenPrice, epochLength, epochYield, max, capacity, conclusion) {
+  constructor(baseTokenSymbol, quoteToken, epochYield, vestingPeriod, premium, max, capacity, conclusion) {
+    let marketPair  = baseTokenSymbol + "/" + quoteToken.symbol;
+    // initialize all fields to create desired sequence in table header
+    this.market     = marketPair
+    this.lockup     = ''
+    this.ask        = '100' // for staking/unstaking, adjusted later for other markets
+    this.ytm        = ''
+    this.apr        = ''
+    this.apy        = ''
+    this["i-price"] = ''
+    this.low24h     = ''
+    this.maxΩ       = ''
+    this.capΩ       = ''
+    this.conclusion = ''
+
     let secondsPerYear = 31557600; // 365.25 days
-    let marketPair = baseTokenSymbol + "/" + quoteTokenSymbol;
-    this.market  = marketPair;
-    this.lockup   = utilsTsPeriodToTime(type == "Fixed-term" ? vestingPeriod : vestingPeriod - Date.now()/1000);
-    this.ask    = (100*marketValue).toFixed(2);
-    this.ytm      = (100*((1/marketValue)*Math.pow(1+epochYield,vestingPeriod/epochLength)-1)).toFixed(2) + "%";
-    this.apr      = marketValue > 1 || marketPair == 'OHM/gOHM'? "" : (100*epochYield*secondsPerYear/(marketValue*epochLength)).toFixed(0) + "%";
-    this.apy      = marketValue > 1 ? "" : (100*Math.pow((1/marketValue)*(1+(Math.pow(1+epochYield,vestingPeriod/epochLength)-1)),secondsPerYear/vestingPeriod)-1).toFixed(0) + "%";
-    this["i-price"] = '';
-    this.low24h = '';
-    this.maxΩ   = max;
-    this.capΩ   = capacity;
-    this.conclusion = conclusion == "" ? "" : utilsTsPeriodToTime(conclusion);
+    let epochsPerYear = secondsPerYear / olympusStaking.epoch.length;
     if (marketPair == 'gOHM/OHM') {   // special treatment of Staking line
-      this.lockup = "";
-      this.ytm = "";
-      this.apy = (100*(Math.pow(1+epochYield,secondsPerYear/epochLength)-1)).toFixed(0) + "%";
-      this.capΩ = '';
-    } else if (marketPair == 'OHM/gOHM') { // unstaking line
-      this.lockup = "";
-      this.ytm = "";
-      this.apy = "";    
-    } else {
-      utilsSetLowToLocalStorage(marketPair,(100*marketValue).toFixed(2));
-      this.low24h = utilsGetLowFromLocalStorage(marketPair); 
+      this.apr = (100*utilsCalculateAPR(epochYield, epochsPerYear)).toFixed(0) + "%";
+      this.apy = (100*utilsCalculateAPY(epochYield, epochsPerYear)).toFixed(0) + "%";
+    } else if (marketPair != 'OHM/gOHM') {
+      utilsSetLowToLocalStorage(marketPair,(100*premium).toFixed(2));
+      this.lockup = utilsTsPeriodToTime(vestingPeriod);
+      this.ask    = (100*premium).toFixed(2)
+
+      let epochsToMaturity =  vestingPeriod / olympusStaking.epoch.length;
+      let maturitiesPerYear = secondsPerYear / vestingPeriod;
+      let ytm   = (1 / premium) * (1 + utilsCalculateAPY(epochYield, epochsToMaturity)) - 1;
+      this.ytm  = (100 * ytm).toFixed(2) + "%";
+      this.apr  = (100 * (1 + ytm) * utilsCalculateAPR(epochYield, epochsPerYear - epochsToMaturity)).toFixed(0) + "%";
+      this.apy  = (100 * utilsCalculateAPY(ytm, maturitiesPerYear)).toFixed(0) + "%";
+      this.low24h = utilsGetLowFromLocalStorage(marketPair) 
+      this.maxΩ = max
+      this.capΩ = capacity
+      this.conclusion = utilsTsPeriodToTime(conclusion);
       if (GLOBAL.simulation.depositSize > 0) {
-        let a = GLOBAL.tokens.find(token => token.symbol == quoteTokenSymbol);
-        let isSingleAsset = a.factory == 'undefined' ? true : false;
-        let gasCostForPar = 100*(Number(UI.showGasPrice.innerHTML) * Number(GLOBAL.simulation.gasUsage)
-          * GLOBAL.price.usdeth * GLOBAL.price.ohmusd / 1e9) / Number(GLOBAL.simulation.depositSize);
-        this["i-price"] = (100*marketValue + gasCostForPar + (isSingleAsset 
-          ? (Number(GLOBAL.simulation.swapFee) + Number(GLOBAL.simulation.slippage))
-          : (Number(GLOBAL.simulation.swapFee) + Number(GLOBAL.simulation.slippage)) / 2)).toFixed(2);
+        let gasCostForPar = (Number(UI.showGasPrice.innerHTML) * Number(GLOBAL.simulation.gasUsage)
+          * GLOBAL.price.usdeth * GLOBAL.price.ohmusd / 1e9)
+          * 100 / Number(GLOBAL.simulation.depositSize);
+        this["i-price"] = (100 * premium + gasCostForPar 
+          + ((Number(GLOBAL.simulation.swapFee) + Number(GLOBAL.simulation.slippage))
+          / (isTokenLp(quoteToken) ? 2 : 1))).toFixed(2);
       }
     }
   }
+}
+
+/** 
+ * Calculates APR based on rate and number of periods
+ */
+function utilsCalculateAPR(rate, periods) {
+  return rate * periods
+}
+
+/** 
+ * Calculates APY based on rate and number of periods
+ */
+function utilsCalculateAPY(rate, periods) {
+  return Math.pow(1 + rate, periods) - 1
 }
 
 /**
@@ -195,7 +217,6 @@ const liveMarkets = [{
   pro:          '',
   markets:  [],
   terms:  [],
-  product: '',
 }]
 
 const olympusStaking = {
@@ -427,17 +448,19 @@ function refreshPortfolioTable() {
 }
 
 function refreshMarketTable() {
+  let quoteToken;
+  let epochYield = Number(olympusStaking.epoch.distribute/BigInt(1e6))/Number(olympusStaking.epoch.circulatingSupply/BigInt(1e6));
   GLOBAL.market.length = 0;
   for(let i = 0; i < GLOBAL.liveMarket.length; i++) {
-    let quoteToken = GLOBAL.tokens.find(token => token.address == GLOBAL.liveMarket[i].markets.quoteToken);
-    let product = GLOBAL.liveMarket[i].product;
+    quoteToken = GLOBAL.tokens.find(token => token.address == GLOBAL.liveMarket[i].markets.quoteToken);
     let baseTokenSymbol = (GLOBAL.tokens.find(tk => tk.address == GLOBAL.liveMarket[i].markets.baseToken)).symbol;
-    let type            = GLOBAL.liveMarket[i].terms.fixedTerm ? "Fixed-term" : "Fixed-expiry";
-    let vestingPeriod   = GLOBAL.liveMarket[i].terms.fixedTerm ? GLOBAL.liveMarket[i].terms.vesting : GLOBAL.liveMarket[i].terms.conclusion;
-    let marketValue     = GLOBAL.liveMarket[i].premium;
+    let vestingPeriod   = GLOBAL.liveMarket[i].terms.fixedTerm 
+      ? GLOBAL.liveMarket[i].terms.vesting 
+      : GLOBAL.liveMarket[i].terms.conclusion - Date.now()/1000;
+    let premium = GLOBAL.liveMarket[i].premium;
     let quoteTokenPrice = Number(quoteToken.price) / Math.pow(10, quoteToken.decimals);
     let quoteTokenSymbol= quoteToken.symbol;
-    let max = GLOBAL.liveMarket[i].markets.maxPayout / BigInt(1e9);
+    let max = GLOBAL.liveMarket[i].markets.maxPayout / BigInt(1e9); // FIX for pro. this assumes gOHM.
     let capacity;
     if (!GLOBAL.liveMarket[i].markets.capacityInQuote) {
       capacity = String(GLOBAL.liveMarket[i].markets.capacity / BigInt(1e9));
@@ -448,14 +471,14 @@ function refreshMarketTable() {
         capacity = Math.round(String(GLOBAL.liveMarket[i].markets.capacity) / quoteTokenPrice / Math.pow(10, quoteToken.decimals));
       }
     }
-    GLOBAL.market.push(new Market(baseTokenSymbol, quoteTokenSymbol, type, vestingPeriod, marketValue, quoteTokenPrice, olympusStaking.epoch.length, Number(olympusStaking.epoch.distribute/BigInt(1e6))/Number(olympusStaking.epoch.circulatingSupply/BigInt(1e6)), max, capacity, GLOBAL.liveMarket[i].terms.conclusion - Date.now()/1000));
-
+    GLOBAL.market.push(new Market(baseTokenSymbol, quoteToken, epochYield, vestingPeriod, premium, max, capacity, GLOBAL.liveMarket[i].terms.conclusion - Date.now()/1000));
   }
-  GLOBAL.market.unshift(new Market('gOHM', "OHM", "Staking", "", 1, 1, olympusStaking.epoch.length, Number(olympusStaking.epoch.distribute/BigInt(1e6))/Number(olympusStaking.epoch.circulatingSupply/BigInt(1e6)), "", "", ""));
-  GLOBAL.market.unshift(new Market('OHM', "gOHM", "Staking", "", 1, 1, olympusStaking.epoch.length, Number(olympusStaking.epoch.distribute/BigInt(1e6))/Number(olympusStaking.epoch.circulatingSupply/BigInt(1e6)), "", "", ""));
+  quoteToken = GLOBAL.tokens.find(token => token.symbol == 'OHM');
+  GLOBAL.market.unshift(new Market('gOHM', quoteToken, epochYield));
+  quoteToken = GLOBAL.tokens.find(token => token.symbol == 'gOHM');
+  GLOBAL.market.unshift(new Market('OHM', quoteToken, epochYield));
   
   showMarketTable();
-
 }
 /**
  * Generic warning function to be called upon errors
@@ -891,7 +914,8 @@ async function updateBalances(dep) {
       for (let i = 0; i < GLOBAL.tokens.length; i++) 
         if (GLOBAL.tokens[i].isNative) { 
           let bal = await getTokenBalance(GLOBAL.tokens[i].address);
-          GLOBAL.balance.push(new Balance(bal, GLOBAL.tokens[i].address, GLOBAL.tokens[i].symbol));  
+          if (bal > 0)
+            GLOBAL.balance.push(new Balance(bal, GLOBAL.tokens[i].address, GLOBAL.tokens[i].symbol));  
         }
 
     for (let i = 0; i < GLOBAL.liveMarket.length; i++) {
@@ -1300,8 +1324,8 @@ function utilsUtf8ToHex(s) // Credit: https://stackoverflow.com/questions/605049
   return r;
 }
 
-function utilsSetLowToLocalStorage(product, price) {
-  let key = product + "-" + (new Date()).getHours();
+function utilsSetLowToLocalStorage(marketPair, price) {
+  let key = marketPair + "-" + (new Date()).getHours();
   if (window.localStorage.getItem(key) == null || Number(price) < Number(window.localStorage.getItem(key)))
     window.localStorage.setItem(key, price);
 
@@ -1315,16 +1339,16 @@ function utilsSplitQueryResult(_qr) {
   return qr;
 }
 
-function utilsGetLowFromLocalStorage(product) {
+function utilsGetLowFromLocalStorage(marketPair) {
   let low;
   for (let i = 0; Number((new Date()).getHours()) + i <= 23; i++) {
-    let key = product + "-" + (Number((new Date()).getHours()) + i);
+    let key = marketPair + "-" + (Number((new Date()).getHours()) + i);
     let val = window.localStorage.getItem(key);
     if (typeof(low) == 'undefined' || Number(val) < Number(low))
       low = val == null ? low : val; 
   }
   for (let i = 1; Number((new Date()).getHours()) - i >= 0; i++) {
-    let key = product + "-" + (Number((new Date()).getHours()) - i);
+    let key = marketPair + "-" + (Number((new Date()).getHours()) - i);
     let val = window.localStorage.getItem(key);
     if (typeof(low) == 'undefined' || Number(val) < Number(low))
       low = val == null ? low : val; 
