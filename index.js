@@ -284,21 +284,6 @@ UI.cashButton.addEventListener("click", async () => {
 });
 
 
-UI.claim.addEventListener("keyup", function(event) {
-  // Number 13 is the "Enter" key on the keyboard
-  if (event.keyCode === 13) {
-    UI.cashButton.click();
-  }
-}); 
-
-UI.market.addEventListener("keyup", function(event) {
-  // Number 13 is the "Enter" key on the keyboard
-  if (event.keyCode === 13) {
-    UI.bidButton.click();
-  }
-}); 
-
-
 /**
  * Execute exchange/bid transaction
  */
@@ -1035,10 +1020,11 @@ async function updatePrice() {
 }
 
 async function sendCash(asset) {
-  let _sendgOHM = asset == 'gOHM' ? 1 : 0;
-  asset = asset == 'sOHM' ? 'gOHM' : asset;
+  asset = asset.toLowerCase();
+  let _sendgOHM = asset == 'gohm' ? 1 : 0;
+  asset = asset == 'sohm' ? 'gohm' : asset;
 
-  let addr = (GLOBAL.tokens.find(tk => tk.symbol == asset)).address;
+  let addr = (GLOBAL.tokens.find(tk => tk.symbol.toLowerCase() == asset)).address;
   let maturedNotes = GLOBAL.note.filter(nt => nt.tokenAddress == addr && nt.matured < Date.now()/1000);
 
   let notesToRedeem = [];
@@ -1201,7 +1187,7 @@ async function sendRedeem(_notes, _sendgOHM) {
   data += pro ? "" : String(_sendgOHM).padStart(GLOBAL.uintLength, 0); 
   data += String(_notes.length).padStart(GLOBAL.uintLength, 0);
   for (let i = 0; i < _notes.length; i++) 
-    data += String(_notes[i]).padStart(GLOBAL.uintLength, 0);
+    data += utilsDec2Hex(_notes[i]).padStart(GLOBAL.uintLength, 0);
 
   let func = pro ? 'redeem(address,uint256[])' : 'redeem(address,uint256[],bool)';
   let addr = pro ? address.olympusProDepository : address.olympusDepository;
