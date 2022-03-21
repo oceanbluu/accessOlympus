@@ -82,7 +82,7 @@ class Position {
  * Data repository finessed for mirroring to UI table
  */
 class Market {
-  constructor(baseTokenSymbol, quoteToken, epochYield, vestingPeriod, premium, max, capacity, conclusion) {
+  constructor(baseTokenSymbol, quoteToken, epochYield, vestingPeriod, premium, max, capacity, conclusion, _id) {
     let marketPair  = baseTokenSymbol + "/" + quoteToken.symbol;
     // initialize all fields to create desired sequence in table header
     this.market     = marketPair
@@ -103,7 +103,7 @@ class Market {
       this.apr = (100*utilsCalculateAPR(epochYield, epochsPerYear)).toFixed(0) + "%";
       this.apy = (100*utilsCalculateAPY(epochYield, epochsPerYear)).toFixed(0) + "%";
     } else if (marketPair != 'OHM/gOHM') {
-      utilsSetLowToLocalStorage(marketPair,(100*premium).toFixed(2));
+      utilsSetLowToLocalStorage(_id,(100*premium).toFixed(2));
       this.lockup = utilsTsPeriodToTime(vestingPeriod);
       this.ask    = (100*premium).toFixed(2)
 
@@ -113,7 +113,7 @@ class Market {
       this.ytm  = (100 * ytm).toFixed(2) + "%";
       this.apr  = (100 * (1 + ytm) * utilsCalculateAPR(epochYield, epochsPerYear - epochsToMaturity)).toFixed(0) + "%";
       this.apy  = (100 * utilsCalculateAPY(ytm, maturitiesPerYear)).toFixed(0) + "%";
-      this.low24h = utilsGetLowFromLocalStorage(marketPair) 
+      this.low24h = utilsGetLowFromLocalStorage(_id)
       this.maxΩ = max
       this.capΩ = capacity
       this.conclusion = utilsTsPeriodToTime(conclusion);
@@ -456,7 +456,8 @@ function refreshMarketTable() {
         capacity = Math.round(String(GLOBAL.liveMarket[i].markets.capacity) / quoteTokenPrice / Math.pow(10, quoteToken.decimals));
       }
     }
-    GLOBAL.market.push(new Market(baseTokenSymbol, quoteToken, epochYield, vestingPeriod, premium, max, capacity, GLOBAL.liveMarket[i].terms.conclusion - Date.now()/1000));
+    GLOBAL.market.push(new Market(baseTokenSymbol, quoteToken, epochYield, vestingPeriod, premium, max, capacity, 
+      GLOBAL.liveMarket[i].terms.conclusion - Date.now()/1000, GLOBAL.liveMarket[i].ID));
   }
   quoteToken = GLOBAL.tokens.find(token => token.symbol == 'OHM');
   GLOBAL.market.unshift(new Market('gOHM', quoteToken, epochYield));
@@ -1310,8 +1311,8 @@ function utilsUtf8ToHex(s) // Credit: https://stackoverflow.com/questions/605049
   return r;
 }
 
-function utilsSetLowToLocalStorage(marketPair, price) {
-  let key = marketPair + "-" + (new Date()).getHours();
+function utilsSetLowToLocalStorage(_key, price) {
+  let key = _key + "-" + (new Date()).getHours();
   if (window.localStorage.getItem(key) == null || Number(price) < Number(window.localStorage.getItem(key)))
     window.localStorage.setItem(key, price);
 
@@ -1325,16 +1326,16 @@ function utilsSplitQueryResult(_qr) {
   return qr;
 }
 
-function utilsGetLowFromLocalStorage(marketPair) {
+function utilsGetLowFromLocalStorage(_key) {
   let low;
   for (let i = 0; Number((new Date()).getHours()) + i <= 23; i++) {
-    let key = marketPair + "-" + (Number((new Date()).getHours()) + i);
+    let key = _key + "-" + (Number((new Date()).getHours()) + i);
     let val = window.localStorage.getItem(key);
     if (typeof(low) == 'undefined' || Number(val) < Number(low))
       low = val == null ? low : val; 
   }
   for (let i = 1; Number((new Date()).getHours()) - i >= 0; i++) {
-    let key = marketPair + "-" + (Number((new Date()).getHours()) - i);
+    let key = _key + "-" + (Number((new Date()).getHours()) - i);
     let val = window.localStorage.getItem(key);
     if (typeof(low) == 'undefined' || Number(val) < Number(low))
       low = val == null ? low : val; 
