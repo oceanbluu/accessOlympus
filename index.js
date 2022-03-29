@@ -456,8 +456,9 @@ function refreshMarketTable() {
         capacity = Math.round(String(GLOBAL.liveMarket[i].markets.capacity) / quoteTokenPrice / Math.pow(10, quoteToken.decimals));
       }
     }
-    GLOBAL.market.push(new Market(baseTokenSymbol, quoteToken, epochYield, vestingPeriod, premium, max, capacity, 
-      GLOBAL.liveMarket[i].terms.conclusion - Date.now()/1000, GLOBAL.liveMarket[i].ID));
+    if (capacity > 0)
+      GLOBAL.market.push(new Market(baseTokenSymbol, quoteToken, epochYield, vestingPeriod, premium, max, capacity, 
+        GLOBAL.liveMarket[i].terms.conclusion - Date.now()/1000, GLOBAL.liveMarket[i].ID));
   }
   quoteToken = GLOBAL.tokens.find(token => token.symbol == 'OHM');
   GLOBAL.market.unshift(new Market('gOHM', quoteToken, epochYield));
@@ -812,17 +813,20 @@ async function updateMarkets(dep) {
     const liveMarkets = [];
     for (let i = 1; i <= marketCount; i++)      // identify all live market IDs
       liveMarkets.push(Number(queryResult[i+1]));
-    for (let i = 0; i < GLOBAL.liveMarket.length; i++) // remove expired markets
-      if (!liveMarkets.find(mid => mid == GLOBAL.liveMarket[i].ID)) GLOBAL.liveMarket.splice(i, 1);
-      
-    for (let i = 0; i < liveMarkets.length; i++) // add market if it does not exist already
-      if (typeof(GLOBAL.liveMarket) == 'undefined' 
-        || !GLOBAL.liveMarket.find(lm => lm.ID == liveMarkets[i])
-        || GLOBAL.liveMarket.find(lm => lm.ID == liveMarkets[i] && lm.pro != dep.pro)) {
+//    for (let i = 0; i < GLOBAL.liveMarket.length; i++) // remove expired markets
+//      if (!liveMarkets.find(mid => mid == GLOBAL.liveMarket[i].ID)) GLOBAL.liveMarket.splice(i, 1);
+    GLOBAL.liveMarket.length = 0; 
+    for (let i = 0; i < liveMarkets.length; i++) { 
+      // add market if it does not exist already
+//      if (typeof(GLOBAL.liveMarket) == 'undefined' 
+//        || !GLOBAL.liveMarket.find(lm => lm.ID == liveMarkets[i])
+//        || GLOBAL.liveMarket.find(lm => lm.ID == liveMarkets[i] && lm.pro != dep.pro)) {
         let k = await getMarkets(dep, liveMarkets[i]);
         let m = await getTerms(dep, liveMarkets[i]);
+        
+      if (Number(k.capacity) > 50 * 1e9) // 1e9 only works for OHM. FIX adjustment for pro
         GLOBAL.liveMarket.push(new LiveMarket(liveMarkets[i], k, m, dep.pro));
-      }
+    }
 
     for (let i = 0; i < GLOBAL.liveMarket.length; i++) {
       await getTokens(GLOBAL.liveMarket[i].markets.quoteToken);
@@ -1312,9 +1316,14 @@ function utilsUtf8ToHex(s) // Credit: https://stackoverflow.com/questions/605049
 }
 
 function utilsSetLowToLocalStorage(_key, price) {
-  let key = _key + "-" + (new Date()).getHours();
-  if (window.localStorage.getItem(key) == null || Number(price) < Number(window.localStorage.getItem(key)))
-    window.localStorage.setItem(key, price);
+  let d = new Date();
+  for (let i = 1; i <= 31; i++) //remove all potentially old saves, except todays
+    if (i != d.getDate())
+      window.localStorage.removeItem(_key + "-" + i + "-" + d.getHours());
+
+  let newKey = _key + "-" + d.getDate() + "-" + d.getHours();
+  if (window.localStorage.getItem(newKey) == null || Number(price) < Number(window.localStorage.getItem(newKey)))
+    window.localStorage.setItem(newKey, price);
 
 }
 
@@ -1328,14 +1337,17 @@ function utilsSplitQueryResult(_qr) {
 
 function utilsGetLowFromLocalStorage(_key) {
   let low;
-  for (let i = 0; Number((new Date()).getHours()) + i <= 23; i++) {
-    let key = _key + "-" + (Number((new Date()).getHours()) + i);
+  let d = new Date();
+
+  for (let i = d.getHours(); i >= 0; i--) {
+    let key = _key + "-" + d.getDate() + "-" + i;
     let val = window.localStorage.getItem(key);
     if (typeof(low) == 'undefined' || Number(val) < Number(low))
       low = val == null ? low : val; 
   }
-  for (let i = 1; Number((new Date()).getHours()) - i >= 0; i++) {
-    let key = _key + "-" + (Number((new Date()).getHours()) - i);
+
+  for (let i = 23; i > d.getHours(); i--) {
+    let key = _key + "-" + (d.getDate()-1) + "-" + i;
     let val = window.localStorage.getItem(key);
     if (typeof(low) == 'undefined' || Number(val) < Number(low))
       low = val == null ? low : val; 
